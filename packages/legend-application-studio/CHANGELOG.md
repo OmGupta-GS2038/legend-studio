@@ -1,5 +1,21 @@
 # @finos/legend-application-studio
 
+## 28.19.46
+
+## 28.19.45
+
+### Patch Changes
+
+- [#4491](https://github.com/finos/legend-studio/pull/4491) [`472b86e`](https://github.com/finos/legend-studio/commit/472b86ef554750c0e4b70958e485986657a9335f) ([@yash0024](https://github.com/yash0024)) - Rename occurences of FunctionStoreTestData to FunctionTestData as in engine
+
+## 28.19.44
+
+## 28.19.43
+
+### Patch Changes
+
+- [#4457](https://github.com/finos/legend-studio/pull/4457) [`4a26d6b`](https://github.com/finos/legend-studio/commit/4a26d6b85a00880801c5bcb089eee632bd8e2aae) ([@travisstebbins](https://github.com/travisstebbins)) - Move DataProductConfig to LegendApplicationConfig
+
 ## 28.19.42
 
 ### Patch Changes

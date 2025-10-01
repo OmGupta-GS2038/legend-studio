@@ -16,7 +16,7 @@
 
 import { observer } from 'mobx-react-lite';
 import { useEffect, useState } from 'react';
-import { Box, Container, Grid2 as Grid } from '@mui/material';
+import { Box, Container } from '@mui/material';
 import { LegendMarketplaceSearchBar } from '../../components/SearchBar/LegendMarketplaceSearchBar.js';
 import { LegendMarketplacePage } from '../LegendMarketplacePage.js';
 import { useAuth } from 'react-oidc-context';
@@ -31,7 +31,11 @@ import {
   generateLakehouseSearchResultsRoute,
   generateLegacyDataProductPath,
 } from '../../__lib__/LegendMarketplaceNavigation.js';
-import { assertErrorThrown, isNonEmptyString } from '@finos/legend-shared';
+import {
+  assertErrorThrown,
+  isNonEmptyString,
+  isNonNullable,
+} from '@finos/legend-shared';
 import { useLegendMarketplaceBaseStore } from '../../application/providers/LegendMarketplaceFrameworkProvider.js';
 import type { BaseProductCardState } from '../../stores/lakehouse/dataProducts/BaseProductCardState.js';
 import { LakehouseHighlightedProductCard } from '../../components/LakehouseProductCard/LakehouseHighlightedProductCard.js';
@@ -41,35 +45,46 @@ import { generateGAVCoordinates } from '@finos/legend-storage';
 import { DemoModal } from './DemoModal.js';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
+import {
+  DATAPRODUCT_TYPE,
+  LEGEND_MARKETPLACE_PAGE,
+  LegendMarketplaceTelemetryHelper,
+} from '../../__lib__/LegendMarketplaceTelemetryHelper.js';
+import { V1_SdlcDeploymentDataProductOrigin } from '@finos/legend-graph';
 
 export const MarketplaceLakehouseHome = observer(() => {
   const legendMarketplaceBaseStore = useLegendMarketplaceBaseStore();
   const applicationStore = legendMarketplaceBaseStore.applicationStore;
   const auth = useAuth();
+  const configOptions = applicationStore.config.options;
+  const showDevFeatures = configOptions.showDevFeatures;
+
   const [highlightedDataProducts, setHighlightedDataProducts] = useState<
     BaseProductCardState[]
   >([]);
   const [loading, setLoading] = useState(false);
 
   const [activeIndex, setActiveIndex] = useState(0);
-
   useEffect(() => {
     const loadDataProducts = async (): Promise<void> => {
       setLoading(true);
 
       try {
-        const dataProducts = await Promise.all(
-          applicationStore.pluginManager
+        const dataProducts = await Promise.all([
+          await legendMarketplaceBaseStore.initHighlightedDataProducts(
+            auth.user?.access_token,
+          ),
+          ...applicationStore.pluginManager
             .getApplicationPlugins()
             .flatMap(
               async (plugin) =>
-                (await plugin.getHomePageDataProducts?.(
+                (await plugin.getExtraHomePageDataProducts?.(
                   legendMarketplaceBaseStore,
                   auth.user?.access_token,
                 )) ?? [],
             ),
-        );
-        setHighlightedDataProducts(dataProducts.flat());
+        ]);
+        setHighlightedDataProducts(dataProducts.filter(isNonNullable).flat());
       } catch (error) {
         assertErrorThrown(error);
         applicationStore.notificationService.notifyError(
@@ -92,10 +107,43 @@ export const MarketplaceLakehouseHome = observer(() => {
     legendMarketplaceBaseStore,
   ]);
 
-  const handleSearch = (query: string | undefined): void => {
-    if (isNonEmptyString(query)) {
-      applicationStore.navigationService.navigator.goToLocation(
-        generateLakehouseSearchResultsRoute(query),
+  const handleSearch = (query: string): void => {
+    applicationStore.navigationService.navigator.goToLocation(
+      generateLakehouseSearchResultsRoute(query),
+    );
+  };
+
+  const logClickingDataProductCard = (
+    productCardState: BaseProductCardState,
+  ): void => {
+    if (productCardState instanceof DataProductCardState) {
+      const details = productCardState.dataProductDetails;
+      const origin =
+        details.origin instanceof V1_SdlcDeploymentDataProductOrigin
+          ? {
+              type: DATAPRODUCT_TYPE.SDLC,
+              groupId: details.origin.group,
+              artifactId: details.origin.artifact,
+              versionId: details.origin.version,
+            }
+          : {
+              type: DATAPRODUCT_TYPE.ADHOC,
+            };
+      LegendMarketplaceTelemetryHelper.logEvent_ClickingDataProductCard(
+        applicationStore.telemetryService,
+        {
+          origin: origin,
+          dataProductId: details.id,
+          deploymentId: details.deploymentId,
+          name: details.dataProduct.name,
+        },
+        LEGEND_MARKETPLACE_PAGE.HOME_PAGE,
+      );
+    } else if (productCardState instanceof LegacyDataProductCardState) {
+      LegendMarketplaceTelemetryHelper.logEvent_ClickingLegacyDataProductCard(
+        applicationStore.telemetryService,
+        productCardState,
+        LEGEND_MARKETPLACE_PAGE.HOME_PAGE,
       );
     }
   };
@@ -126,13 +174,15 @@ export const MarketplaceLakehouseHome = observer(() => {
   return (
     <LegendMarketplacePage className="marketplace-lakehouse-home">
       <div className="legend-marketplace-home__button-group">
-        <button
-          onClick={handleShowDemo}
-          className="legend-marketplace-home__button"
-        >
-          <SimpleCalendarIcon className="legend-marketplace-home__button__icon" />
-          Schedule a Demo
-        </button>
+        {showDevFeatures && (
+          <button
+            onClick={handleShowDemo}
+            className="legend-marketplace-home__button"
+          >
+            <SimpleCalendarIcon className="legend-marketplace-home__button__icon" />
+            Schedule a Demo
+          </button>
+        )}
         <button
           className="legend-marketplace-home__button"
           onClick={newsletterNavigation}
@@ -152,7 +202,16 @@ export const MarketplaceLakehouseHome = observer(() => {
           Marketplace
         </Box>
         <LegendMarketplaceSearchBar
-          onSearch={handleSearch}
+          onSearch={(query) => {
+            if (isNonEmptyString(query)) {
+              handleSearch(query);
+              LegendMarketplaceTelemetryHelper.logEvent_SearchQuery(
+                applicationStore.telemetryService,
+                query,
+                LEGEND_MARKETPLACE_PAGE.HOME_PAGE,
+              );
+            }
+          }}
           placeholder="Which data can I help you find?"
           className="marketplace-lakehouse-home__search-bar"
         />
@@ -169,15 +228,12 @@ export const MarketplaceLakehouseHome = observer(() => {
             <CubesLoadingIndicatorIcon />
           </CubesLoadingIndicator>
         ) : (
-          <>
-            <div className="marketplace-lakehouse-home__carousel-header">
-              <div className="marketplace-lakehouse-home__carousel-title">
-                {getCarouselTitle()}
-              </div>
+          <div className="marketplace-lakehouse-home__carousel-header">
+            <div className="marketplace-lakehouse-home__carousel-title">
+              {getCarouselTitle()}
             </div>
             <Swiper
               modules={[Navigation, Pagination, Autoplay]}
-              // spaceBetween={30}
               slidesPerView={1}
               navigation={false}
               pagination={{ clickable: true }}
@@ -190,15 +246,11 @@ export const MarketplaceLakehouseHome = observer(() => {
               className="marketplace-lakehouse-home__carousel"
             >
               <SwiperSlide key={1}>
-                <Grid
-                  container={true}
-                  spacing={{ xs: 2, sm: 3, lg: 4, xl: 6 }}
-                  columns={{ xs: 1, sm: 2, md: 3, lg: 4, xxxl: 5 }}
-                  className="marketplace-lakehouse-home__data-product-cards"
-                >
-                  {highlightedDataProducts.map((productCardState) => (
-                    <Grid key={productCardState.guid} size={1}>
+                <div className="marketplace-lakehouse-home__carousel-slide">
+                  {highlightedDataProducts.map(
+                    (productCardState: BaseProductCardState, index: number) => (
                       <LakehouseHighlightedProductCard
+                        key={`slide-1-${productCardState.guid}`}
                         productCardState={productCardState}
                         onClick={() => {
                           const path =
@@ -222,22 +274,19 @@ export const MarketplaceLakehouseHome = observer(() => {
                           applicationStore.navigationService.navigator.goToLocation(
                             path,
                           );
+                          logClickingDataProductCard(productCardState);
                         }}
                       />
-                    </Grid>
-                  ))}
-                </Grid>
+                    ),
+                  )}
+                </div>
               </SwiperSlide>
               <SwiperSlide key={2}>
-                <Grid
-                  container={true}
-                  spacing={{ xs: 2, sm: 3, lg: 4, xl: 6 }}
-                  columns={{ xs: 1, sm: 2, md: 3, lg: 4, xxxl: 5 }}
-                  className="marketplace-lakehouse-home__data-product-cards"
-                >
-                  {highlightedDataProducts.map((productCardState) => (
-                    <Grid key={productCardState.guid} size={1}>
+                <div className="marketplace-lakehouse-home__carousel-slide">
+                  {highlightedDataProducts.map(
+                    (productCardState: BaseProductCardState, index: number) => (
                       <LakehouseHighlightedProductCard
+                        key={`slide-2-${productCardState.guid}`}
                         productCardState={productCardState}
                         onClick={() => {
                           const path =
@@ -261,22 +310,19 @@ export const MarketplaceLakehouseHome = observer(() => {
                           applicationStore.navigationService.navigator.goToLocation(
                             path,
                           );
+                          logClickingDataProductCard(productCardState);
                         }}
                       />
-                    </Grid>
-                  ))}
-                </Grid>
+                    ),
+                  )}
+                </div>
               </SwiperSlide>
               <SwiperSlide key={3}>
-                <Grid
-                  container={true}
-                  spacing={{ xs: 2, sm: 3, lg: 4, xl: 6 }}
-                  columns={{ xs: 1, sm: 2, md: 3, lg: 4, xxxl: 5 }}
-                  className="marketplace-lakehouse-home__data-product-cards"
-                >
-                  {highlightedDataProducts.map((productCardState) => (
-                    <Grid key={productCardState.guid} size={1}>
+                <div className="marketplace-lakehouse-home__carousel-slide">
+                  {highlightedDataProducts.map(
+                    (productCardState: BaseProductCardState, index: number) => (
                       <LakehouseHighlightedProductCard
+                        key={`slide-1-${productCardState.guid}`}
                         productCardState={productCardState}
                         onClick={() => {
                           const path =
@@ -300,14 +346,15 @@ export const MarketplaceLakehouseHome = observer(() => {
                           applicationStore.navigationService.navigator.goToLocation(
                             path,
                           );
+                          logClickingDataProductCard(productCardState);
                         }}
                       />
-                    </Grid>
-                  ))}
-                </Grid>
+                    ),
+                  )}
+                </div>
               </SwiperSlide>
             </Swiper>
-          </>
+          </div>
         )}
       </Container>
       <DemoModal />

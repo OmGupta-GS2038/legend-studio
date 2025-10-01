@@ -49,12 +49,22 @@
     gap: 2rem;
   }
 
+  &__subtitles {
+    font-weight: bold;
+    margin: 0.8em 0;
+    font-size: 2.2rem;
+  }
+
   &__sort-filters {
     display: flex;
     flex-direction: column;
     gap: 2rem;
     font-size: 1.8rem;
     min-width: 25rem;
+    height: 100%;
+    background: #f2f2f2;
+    padding: 1.6rem;
+    width: 15%;
 
     &__filter {
       display: flex;
@@ -65,8 +75,12 @@
         font-size: 2rem;
       }
 
-      .MuiTypography-root {
-        font-size: 1.2rem;
+      .MuiFormControlLabel-label {
+        font-size: 1.4rem;
+      }
+
+      .Mui-checked:not(.Mui-disabled) {
+        color: #000;
       }
 
       &__section-header {

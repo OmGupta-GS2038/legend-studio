@@ -19,18 +19,36 @@ import {
   LegendDataCubeSourceBuilderState,
   LegendDataCubeSourceBuilderType,
 } from './LegendDataCubeSourceBuilderState.js';
-import { guaranteeNonNullable, type PlainObject } from '@finos/legend-shared';
+import {
+  guaranteeNonNullable,
+  guaranteeType,
+  type PlainObject,
+} from '@finos/legend-shared';
 import type { DataCubeAlertService } from '@finos/legend-data-cube';
 import type { LegendDataCubeApplicationStore } from '../../LegendDataCubeBaseStore.js';
 import type { LegendDataCubeDataCubeEngine } from '../../LegendDataCubeDataCubeEngine.js';
-import { RawLakehouseProducerDataCubeSource } from '../../model/LakehouseProducerDataCubeSource.js';
+import {
+  IcebergConfig,
+  RawLakehouseProducerDataCubeSource,
+} from '../../model/LakehouseProducerDataCubeSource.js';
 import {
   IngestDeploymentServerConfig,
   ProducerEnvironment,
   type LakehouseIngestServerClient,
   type LakehousePlatformServerClient,
 } from '@finos/legend-server-lakehouse';
-import type { V1_IngestDefinition } from '@finos/legend-graph';
+import {
+  V1_AWSSnowflakeIngestEnvironment,
+  V1_AWSSnowflakeProducerEnvironment,
+  V1_deserializeIngestEnvironment,
+  V1_deserializeProducerEnvironment,
+  V1_OpenCatalog,
+  type V1_IngestDefinition,
+  V1_deserializePureModelContext,
+  V1_PureModelContextData,
+} from '@finos/legend-graph';
+import type { UserManagerSettings } from 'oidc-client-ts';
+import { SecondaryOAuthClient } from '../../model/SecondaryOauthClient.js';
 
 export class LakehouseProducerDataCubeSourceBuilderState extends LegendDataCubeSourceBuilderState {
   deploymentId: number | undefined;
@@ -43,6 +61,15 @@ export class LakehouseProducerDataCubeSourceBuilderState extends LegendDataCubeS
   ingestUrns: string[] = [];
   tables: string[] = [];
   datasetGroup: string | undefined;
+  icebergEnabled: boolean | undefined;
+  enableIceberg: boolean;
+  databaseName: string | undefined;
+  catalogUrl: string | undefined;
+  milestoning: boolean;
+
+  userManagerSettings: UserManagerSettings | undefined;
+
+  private LAKEHOUSE_SECTION = '###Lakehouse';
 
   readonly _platformServerClient: LakehousePlatformServerClient;
   readonly _ingestServerClient: LakehouseIngestServerClient;
@@ -66,6 +93,8 @@ export class LakehouseProducerDataCubeSourceBuilderState extends LegendDataCubeS
       tables: observable,
       datasetGroup: observable,
       selectedTable: observable,
+      icebergEnabled: observable,
+      enableIceberg: observable,
 
       setDeploymentId: action,
       setSelectedIngestUrn: action,
@@ -74,12 +103,15 @@ export class LakehouseProducerDataCubeSourceBuilderState extends LegendDataCubeS
       setTables: action,
       setDatasetGroup: action,
       setSelectedTable: action,
+      setEnableIceberg: action,
     });
 
     this.selectedIngestUrn = '';
     this.selectedTable = '';
     this.warehouse = undefined;
     this.paths = [];
+    this.enableIceberg = false;
+    this.milestoning = false;
   }
 
   setDeploymentId(deploymentId: number | undefined): void {
@@ -111,6 +143,14 @@ export class LakehouseProducerDataCubeSourceBuilderState extends LegendDataCubeS
     this.selectedTable = selectedTable;
   }
 
+  setEnableIceberg(enable: boolean) {
+    this.enableIceberg = enable;
+  }
+
+  setUserManagerSettings(settings: UserManagerSettings) {
+    this.userManagerSettings = settings;
+  }
+
   async fetchIngestUrns(access_token: string | undefined) {
     //TODO: we should retry this method if access token is invalid
     this.resetDeployment(this.deploymentId);
@@ -133,6 +173,13 @@ export class LakehouseProducerDataCubeSourceBuilderState extends LegendDataCubeS
         access_token,
       );
       const producer = ProducerEnvironment.serialization.fromJson(producerUrn);
+
+      await this.fetchProducerEnvironmentDetails(
+        producer,
+        ingestServerUrl,
+        access_token,
+      );
+
       const ingestDefinitions =
         await this._ingestServerClient.getIngestDefinitions(
           producer.producerEnvironmentUrn,
@@ -146,17 +193,55 @@ export class LakehouseProducerDataCubeSourceBuilderState extends LegendDataCubeS
     }
   }
 
+  private async fetchProducerEnvironmentDetails(
+    producer: ProducerEnvironment,
+    ingestServerUrl: string,
+    access_token: string | undefined,
+  ) {
+    const producerEnvPlainObject =
+      await this._ingestServerClient.getProducerEnvironmentDetails(
+        producer.producerEnvironmentUrn,
+        ingestServerUrl,
+        access_token,
+      );
+
+    const producerEnv = guaranteeType(
+      V1_deserializeProducerEnvironment(producerEnvPlainObject),
+      V1_AWSSnowflakeProducerEnvironment,
+    );
+    this.icebergEnabled = producerEnv.icebergEnabled;
+
+    if (this.icebergEnabled) {
+      this.setEnableIceberg(this.icebergEnabled);
+      await this.fetchIcebergCatalogDetails(access_token);
+    }
+
+    this.databaseName = producerEnv.databaseName;
+  }
+
   async fetchDatasets(access_token: string | undefined) {
     this.setTables([]);
     this.setSelectedTable(undefined);
     try {
-      const plainObjectDef =
-        await this._ingestServerClient.getIngestDefinitionDetail(
+      const ingestGrammar =
+        await this._ingestServerClient.getIngestDefinitionGrammar(
           guaranteeNonNullable(this.selectedIngestUrn),
           this.ingestionServerUrl,
           access_token,
         );
-      this.ingestDefinition = Object.values(plainObjectDef)[0] as PlainObject;
+
+      const ingestPMCDPlainObject = await this._engine.parseCompatibleModel(
+        `${this.LAKEHOUSE_SECTION}\n${ingestGrammar}`,
+      );
+
+      const ingestDefPMCD = guaranteeType(
+        V1_deserializePureModelContext(ingestPMCDPlainObject),
+        V1_PureModelContextData,
+      );
+
+      this.ingestDefinition = (
+        ingestDefPMCD.elements.at(0) as V1_IngestDefinition
+      ).content;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this.setDatasetGroup((this.ingestDefinition as any).datasetGroup);
@@ -177,6 +262,27 @@ export class LakehouseProducerDataCubeSourceBuilderState extends LegendDataCubeS
     return ingestUrn.split('~').pop();
   }
 
+  async fetchIcebergCatalogDetails(access_token: string | undefined) {
+    try {
+      const ingestEnvPlainObject =
+        await this._ingestServerClient.getIngestEnvironment(
+          this.ingestionServerUrl,
+          access_token,
+        );
+      const ingestEnv = guaranteeType(
+        V1_deserializeIngestEnvironment(ingestEnvPlainObject),
+        V1_AWSSnowflakeIngestEnvironment,
+      );
+      this.warehouse = ingestEnv.iceberg.catalog.name;
+      this.catalogUrl = guaranteeType(
+        ingestEnv.iceberg.catalog,
+        V1_OpenCatalog,
+      ).proxyUrl;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   createPath() {
     this.paths = [];
     this.paths.push(
@@ -184,6 +290,17 @@ export class LakehouseProducerDataCubeSourceBuilderState extends LegendDataCubeS
         this.decoratedIngest(guaranteeNonNullable(this.selectedIngestUrn)),
       ),
       guaranteeNonNullable(this.selectedTable),
+    );
+  }
+
+  createIcebergPath() {
+    this.paths = [];
+    this.paths.push(
+      guaranteeNonNullable(this.databaseName),
+      guaranteeNonNullable(this.datasetGroup),
+      this.milestoning
+        ? `${guaranteeNonNullable(this.selectedTable)}_MILESTONED`
+        : guaranteeNonNullable(this.selectedTable),
     );
   }
 
@@ -219,13 +336,37 @@ export class LakehouseProducerDataCubeSourceBuilderState extends LegendDataCubeS
     );
   }
 
-  override generateSourceData(): Promise<PlainObject> {
+  override async generateSourceData(): Promise<PlainObject> {
     // register ingest definition
-    this._engine.registerIngestDefinition(this.ingestDefinition);
 
-    // build data cube source
-    this.createPath();
     const rawSource = new RawLakehouseProducerDataCubeSource();
+    // build data cube source
+    if (this.enableIceberg) {
+      const oauthClient = new SecondaryOAuthClient(
+        guaranteeNonNullable(this.userManagerSettings),
+      );
+      this.milestoning =
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (this.ingestDefinition as any).writeMode._type === 'batch_milestoned';
+      this.createIcebergPath();
+      const icebergConfig = new IcebergConfig();
+      icebergConfig.catalogUrl = guaranteeNonNullable(this.catalogUrl);
+
+      const token = await oauthClient.getToken();
+
+      const refId = await this._engine.ingestIcebergTable(
+        guaranteeNonNullable(this.warehouse),
+        this.paths,
+        guaranteeNonNullable(this.catalogUrl),
+        undefined,
+        token,
+      );
+      icebergConfig.icebergRef = refId.dbReference;
+      rawSource.icebergConfig = icebergConfig;
+    } else {
+      this.createPath();
+      this._engine.registerIngestDefinition(this.ingestDefinition);
+    }
     rawSource.ingestDefinitionUrn = guaranteeNonNullable(
       this.selectedIngestUrn,
     );

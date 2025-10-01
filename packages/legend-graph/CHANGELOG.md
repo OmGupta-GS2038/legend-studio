@@ -1,5 +1,36 @@
 # @finos/legend-graph
 
+## 32.3.2
+
+### Patch Changes
+
+- [#4485](https://github.com/finos/legend-studio/pull/4485) [`28cc9f3`](https://github.com/finos/legend-studio/commit/28cc9f3261d2934bd017b837947804d96f80bca4) ([@OmGupta-GS2038](https://github.com/OmGupta-GS2038)) - query: add description while saving query
+
+## 32.3.1
+
+### Patch Changes
+
+- [#4491](https://github.com/finos/legend-studio/pull/4491) [`472b86e`](https://github.com/finos/legend-studio/commit/472b86ef554750c0e4b70958e485986657a9335f) ([@yash0024](https://github.com/yash0024)) - Bring RelationElementsData to the graph and rename occurences of FunctionStoreTestData to FunctionTestData as in engine
+
+## 32.3.0
+
+### Minor Changes
+
+- [#4424](https://github.com/finos/legend-studio/pull/4424) [`6bd1936`](https://github.com/finos/legend-studio/commit/6bd1936f17d07ff0c09e3e54f350713256b2ce71) ([@gs-gunjan](https://github.com/gs-gunjan)) - datacube: support iceberg querying flow for lakehouse producers
+  Description:
+  If a lakehouse ingested tabled is iceberg enabled, we allow querying the table via duckdb using iceberg extension
+  Initially we fetch all the data for a particular dataset from a catalog and cache the data. Subsequent operations happen on top of the stored cache.
+
+### Patch Changes
+
+- [#4487](https://github.com/finos/legend-studio/pull/4487) [`5f218cc`](https://github.com/finos/legend-studio/commit/5f218ccdbb026912e0e2239b7ecfe2824a12b326) ([@jackp5150](https://github.com/jackp5150)) - Added producer requests to data products
+
+## 32.2.8
+
+### Patch Changes
+
+- [#4469](https://github.com/finos/legend-studio/pull/4469) [`8a8c8c5`](https://github.com/finos/legend-studio/commit/8a8c8c53a3c24fcf682f107fa0044d91dacfd4e8) ([@travisstebbins](https://github.com/travisstebbins)) - Fix handling contracts with undefined eventPayload
+
 ## 32.2.7
 
 ### Patch Changes

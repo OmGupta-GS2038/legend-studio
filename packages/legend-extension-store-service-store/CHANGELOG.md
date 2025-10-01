@@ -1,5 +1,13 @@
 # @finos/legend-extension-store-service-store
 
+## 2.0.385
+
+## 2.0.384
+
+## 2.0.383
+
+## 2.0.382
+
 ## 2.0.381
 
 ## 2.0.380

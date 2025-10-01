@@ -19,25 +19,26 @@ import {
   useLegendMarketplaceSearchResultsStore,
   withLegendMarketplaceSearchResultsStore,
 } from '../../../application/providers/LegendMarketplaceSearchResultsStoreProvider.js';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   CubesLoadingIndicator,
   CubesLoadingIndicatorIcon,
-  ExpandMoreIcon,
 } from '@finos/legend-art';
 import {
   Box,
-  Button,
   Checkbox,
   Container,
+  FormControl,
   FormControlLabel,
   FormGroup,
   FormLabel,
   Grid2 as Grid,
-  Menu,
   MenuItem,
+  Select,
+  Typography,
 } from '@mui/material';
 import {
   type LegendMarketplaceSearchResultsStore,
@@ -54,11 +55,19 @@ import {
 import { LegendMarketplaceSearchBar } from '../../../components/SearchBar/LegendMarketplaceSearchBar.js';
 import { LegendMarketplacePage } from '../../LegendMarketplacePage.js';
 import { useAuth } from 'react-oidc-context';
-import { V1_IngestEnvironmentClassification } from '@finos/legend-graph';
+import {
+  V1_IngestEnvironmentClassification,
+  V1_SdlcDeploymentDataProductOrigin,
+} from '@finos/legend-graph';
 import { DataProductCardState } from '../../../stores/lakehouse/dataProducts/DataProductCardState.js';
 import { LegacyDataProductCardState } from '../../../stores/lakehouse/dataProducts/LegacyDataProductCardState.js';
 import { generateGAVCoordinates } from '@finos/legend-storage';
 import { LakehouseProductCard } from '../../../components/LakehouseProductCard/LakehouseProductCard.js';
+import {
+  DATAPRODUCT_TYPE,
+  LEGEND_MARKETPLACE_PAGE,
+  LegendMarketplaceTelemetryHelper,
+} from '../../../__lib__/LegendMarketplaceTelemetryHelper.js';
 
 const SearchResultsSortFilterPanel = observer(
   (props: { searchResultsStore: LegendMarketplaceSearchResultsStore }) => {
@@ -66,10 +75,6 @@ const SearchResultsSortFilterPanel = observer(
 
     const [isUnmodeledFilterConfigOpen, setIsUnmodeledFilterConfigOpen] =
       useState(searchResultsStore.filterState.unmodeledDataProducts);
-    const [sortMenuAnchorEl, setSortMenuAnchorEl] =
-      useState<HTMLElement | null>(null);
-
-    const isSortMenuOpen = Boolean(sortMenuAnchorEl);
 
     const handleToggleUnmodeledFilterConfig = () => {
       setIsUnmodeledFilterConfigOpen((prev) => !prev);
@@ -77,49 +82,14 @@ const SearchResultsSortFilterPanel = observer(
 
     return (
       <Box className="marketplace-lakehouse-search-results__sort-filters">
-        <Box className="marketplace-lakehouse-search-results__sort-filters__sort">
-          Sort By
-          <Box>
-            <Button
-              onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
-                setSortMenuAnchorEl(event.currentTarget);
-              }}
-              className="marketplace-lakehouse-search-results__sort-filters__sort__btn"
-            >
-              {searchResultsStore.sort}
-              <ExpandMoreIcon />
-            </Button>
-            <Menu
-              anchorEl={sortMenuAnchorEl}
-              open={isSortMenuOpen}
-              onClose={() => setSortMenuAnchorEl(null)}
-              anchorOrigin={{
-                horizontal: 'left',
-                vertical: 'bottom',
-              }}
-              transformOrigin={{
-                horizontal: 'left',
-                vertical: 'top',
-              }}
-            >
-              {Object.values(DataProductSort).map((sortValue) => {
-                return (
-                  <MenuItem
-                    key={sortValue}
-                    onClick={(event: React.MouseEvent<HTMLLIElement>) => {
-                      searchResultsStore.setSort(sortValue);
-                      setSortMenuAnchorEl(null);
-                    }}
-                  >
-                    {sortValue}
-                  </MenuItem>
-                );
-              })}
-            </Menu>
-          </Box>
-        </Box>
         <Box className="marketplace-lakehouse-search-results__sort-filters__filter">
-          Filter By
+          <Typography
+            variant="h4"
+            className="marketplace-lakehouse-search-results__subtitles"
+          >
+            Filters
+          </Typography>
+          <hr />
           <FormGroup>
             <Box className="marketplace-lakehouse-search-results__sort-filters__filter__section-header">
               <FormControlLabel
@@ -268,7 +238,7 @@ const SearchResultsSortFilterPanel = observer(
                       label="Prod-Parallel"
                     />
                     {searchResultsStore.marketplaceBaseStore.applicationStore
-                      .config.options.showDevIngestEnvironmentFilter && (
+                      .config.options.showDevFeatures && (
                       <FormControlLabel
                         control={
                           <Checkbox
@@ -339,12 +309,71 @@ export const MarketplaceLakehouseSearchResults =
         <LegendMarketplacePage className="marketplace-lakehouse-search-results">
           <Container className="marketplace-lakehouse-search-results__search-container">
             <LegendMarketplaceSearchBar
-              onSearch={handleSearch}
+              onSearch={(query) => {
+                handleSearch(query);
+                LegendMarketplaceTelemetryHelper.logEvent_SearchQuery(
+                  applicationStore.telemetryService,
+                  query,
+                  LEGEND_MARKETPLACE_PAGE.SEARCH_RESULTS_PAGE,
+                );
+              }}
               placeholder="Search Legend Marketplace"
               className="marketplace-lakehouse-search-results__search-bar"
               initialValue={searchQuery}
             />
           </Container>
+          <div className="legend-marketplace-search-results__sort-bar">
+            <div className="legend-marketplace-search-results__sort-bar__container">
+              <Typography
+                variant="h4"
+                className="marketplace-lakehouse-search-results__subtitles"
+              >
+                {searchResultsStore.filterSortProducts?.length ?? '0'} Products
+              </Typography>
+              <FormControl sx={{ width: '8.2rem' }}>
+                <Select
+                  autoWidth={true}
+                  displayEmpty={true}
+                  value={'Sort'}
+                  onChange={(e) => {
+                    searchResultsStore.setSort(
+                      e.target.value as DataProductSort,
+                    );
+                  }}
+                  sx={{
+                    '& .MuiSelect-select': {
+                      fontWeight: '500',
+                      fontSize: '1.6rem',
+                      padding: '1rem',
+                      minHeight: 'unset !important',
+                    },
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'black',
+                      borderRadius: '0rem',
+                    },
+                  }}
+                >
+                  <MenuItem disabled={true} value="Sort">
+                    Sort
+                  </MenuItem>
+                  {Object.values(DataProductSort).map((sortValue) => {
+                    return (
+                      <MenuItem
+                        key={sortValue}
+                        value={sortValue}
+                        sx={{
+                          gap: '0.5rem',
+                        }}
+                      >
+                        {sortValue}
+                        {searchResultsStore.sort === sortValue && <CheckIcon />}
+                      </MenuItem>
+                    );
+                  })}
+                </Select>
+              </FormControl>
+            </div>
+          </div>
           <Container
             maxWidth="xxxl"
             className="marketplace-lakehouse-search-results__results-container"
@@ -385,6 +414,39 @@ export const MarketplaceLakehouseSearchResults =
                         applicationStore.navigationService.navigator.goToLocation(
                           path,
                         );
+                        if (productCardState instanceof DataProductCardState) {
+                          const details = productCardState.dataProductDetails;
+                          const origin =
+                            details.origin instanceof
+                            V1_SdlcDeploymentDataProductOrigin
+                              ? {
+                                  type: DATAPRODUCT_TYPE.SDLC,
+                                  groupId: details.origin.group,
+                                  artifactId: details.origin.artifact,
+                                  versionId: details.origin.version,
+                                }
+                              : {
+                                  type: DATAPRODUCT_TYPE.ADHOC,
+                                };
+                          LegendMarketplaceTelemetryHelper.logEvent_ClickingDataProductCard(
+                            applicationStore.telemetryService,
+                            {
+                              origin: origin,
+                              dataProductId: details.id,
+                              deploymentId: details.deploymentId,
+                              name: details.dataProduct.name,
+                            },
+                            LEGEND_MARKETPLACE_PAGE.SEARCH_RESULTS_PAGE,
+                          );
+                        } else if (
+                          productCardState instanceof LegacyDataProductCardState
+                        ) {
+                          LegendMarketplaceTelemetryHelper.logEvent_ClickingLegacyDataProductCard(
+                            applicationStore.telemetryService,
+                            productCardState,
+                            LEGEND_MARKETPLACE_PAGE.SEARCH_RESULTS_PAGE,
+                          );
+                        }
                       }}
                     />
                   </Grid>

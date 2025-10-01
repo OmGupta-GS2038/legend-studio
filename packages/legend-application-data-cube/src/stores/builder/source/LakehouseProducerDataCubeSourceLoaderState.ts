@@ -17,17 +17,25 @@
 import {
   ActionState,
   guaranteeNonNullable,
+  guaranteeType,
   type PlainObject,
 } from '@finos/legend-shared';
 import type { LegendDataCubeApplicationStore } from '../../LegendDataCubeBaseStore.js';
 import type { LegendDataCubeDataCubeEngine } from '../../LegendDataCubeDataCubeEngine.js';
 import { LegendDataCubeSourceLoaderState } from './LegendDataCubeSourceLoaderState.js';
 import type { DataCubeAlertService } from '@finos/legend-data-cube';
-import type { PersistentDataCube } from '@finos/legend-graph';
+import {
+  V1_deserializePureModelContext,
+  V1_PureModelContextData,
+  type PersistentDataCube,
+  type V1_IngestDefinition,
+} from '@finos/legend-graph';
 import { RawLakehouseProducerDataCubeSource } from '../../model/LakehouseProducerDataCubeSource.js';
 import type { LakehouseIngestServerClient } from '@finos/legend-server-lakehouse';
 import { action, makeObservable, observable } from 'mobx';
 import { LegendDataCubeSourceBuilderType } from './LegendDataCubeSourceBuilderState.js';
+import type { UserManagerSettings } from 'oidc-client-ts';
+import { SecondaryOAuthClient } from '../../model/SecondaryOauthClient.js';
 
 export class LakehouseProducerDataCubeSourceLoaderState extends LegendDataCubeSourceLoaderState {
   readonly processState = ActionState.create();
@@ -35,6 +43,10 @@ export class LakehouseProducerDataCubeSourceLoaderState extends LegendDataCubeSo
   ingestDefinition: PlainObject | undefined;
   ingestDefinitionUrn: string;
   ingestServerUrl: string;
+
+  private userManagerSettings: UserManagerSettings | undefined;
+
+  private LAKEHOUSE_SECTION = '###Lakehouse';
 
   constructor(
     application: LegendDataCubeApplicationStore,
@@ -60,19 +72,23 @@ export class LakehouseProducerDataCubeSourceLoaderState extends LegendDataCubeSo
 
     makeObservable(this, {
       ingestDefinition: observable,
-      setIngestDefintion: action,
+      setIngestDefinition: action,
 
       ingestDefinitionUrn: observable,
       setIngestDefinitionUrn: action,
     });
   }
 
-  setIngestDefintion(ingestDefinition: PlainObject | undefined) {
+  setIngestDefinition(ingestDefinition: PlainObject | undefined) {
     this.ingestDefinition = ingestDefinition;
   }
 
   setIngestDefinitionUrn(urn: string) {
     this.ingestDefinitionUrn = urn;
+  }
+
+  setUserManagerSettings(settings: UserManagerSettings | undefined) {
+    this.userManagerSettings = settings;
   }
 
   override get isValid(): boolean {
@@ -95,13 +111,26 @@ export class LakehouseProducerDataCubeSourceLoaderState extends LegendDataCubeSo
     access_token: string | undefined,
     lakehouseIngestServerClient: LakehouseIngestServerClient,
   ) {
-    this.setIngestDefintion(
-      await lakehouseIngestServerClient.getIngestDefinitionDetail(
-        this.ingestDefinitionUrn,
+    const ingestGrammar =
+      await lakehouseIngestServerClient.getIngestDefinitionGrammar(
+        guaranteeNonNullable(this.ingestDefinitionUrn),
         this.ingestServerUrl,
         access_token,
-      ),
+      );
+
+    const ingestPMCDPlainObject = await this._engine.parseCompatibleModel(
+      `${this.LAKEHOUSE_SECTION}\n${ingestGrammar}`,
     );
+
+    const ingestDefPMCD = guaranteeType(
+      V1_deserializePureModelContext(ingestPMCDPlainObject),
+      V1_PureModelContextData,
+    );
+
+    const protocolIngestDefinition = (
+      ingestDefPMCD.elements.at(0) as V1_IngestDefinition
+    ).content;
+    this.setIngestDefinition(protocolIngestDefinition);
   }
 
   override async load(source: PlainObject | undefined) {
@@ -110,11 +139,27 @@ export class LakehouseProducerDataCubeSourceLoaderState extends LegendDataCubeSo
         guaranteeNonNullable(source),
       );
 
-    this._engine.registerIngestDefinition(
-      Object.values(
+    if (
+      deserializedSource.icebergConfig?.icebergRef &&
+      deserializedSource.icebergConfig.catalogUrl
+    ) {
+      const oauthClient = new SecondaryOAuthClient(
+        guaranteeNonNullable(this.userManagerSettings),
+      );
+      const token = await oauthClient.getToken();
+      const refId = await this._engine.ingestIcebergTable(
+        deserializedSource.warehouse,
+        deserializedSource.paths,
+        deserializedSource.icebergConfig.catalogUrl,
+        deserializedSource.icebergConfig.icebergRef,
+        token,
+      );
+      deserializedSource.icebergConfig.icebergRef = refId.dbReference;
+    } else {
+      this._engine.registerIngestDefinition(
         guaranteeNonNullable(this.ingestDefinition),
-      )[0] as PlainObject,
-    );
+      );
+    }
 
     return RawLakehouseProducerDataCubeSource.serialization.toJson(
       deserializedSource,

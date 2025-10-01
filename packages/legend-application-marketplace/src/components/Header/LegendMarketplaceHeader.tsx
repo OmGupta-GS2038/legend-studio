@@ -126,7 +126,10 @@ const LegendMarketplaceBaseHeader = observer(
           className="legend-marketplace-header__backdrop"
           style={{ opacity: headerBlurOpacity }}
         />
-        <Container maxWidth="xxxl">
+        <Container
+          className="legend-marketplace-header__container"
+          maxWidth={false}
+        >
           <Toolbar disableGutters={true}>
             <div
               className="legend-marketplace-header__name"
@@ -136,7 +139,7 @@ const LegendMarketplaceBaseHeader = observer(
                 src="/assets/legendmarketplacehomelogo.png"
                 alt="Legend Logo"
                 className="legend-marketplace-header__logo"
-                style={{ height: 28 }}
+                style={{ height: 35 }}
               />
             </div>
             <LegendMarketPlaceHeaderTabs pages={pages} />
@@ -144,30 +147,6 @@ const LegendMarketplaceBaseHeader = observer(
           </Toolbar>
         </Container>
       </AppBar>
-    );
-  },
-);
-
-export const LegendMarketplaceHeader = observer(
-  (props: { enableMarketplacePages: boolean }) => {
-    const { enableMarketplacePages } = props;
-
-    return (
-      <LegendMarketplaceBaseHeader
-        headerName="Marketplace"
-        homeUrl={LEGEND_MARKETPLACE_ROUTE_PATTERN.HOME_PAGE}
-        pages={
-          enableMarketplacePages
-            ? [
-                {
-                  title: 'Vendor Data',
-                  urlRoute: LEGEND_MARKETPLACE_ROUTE_PATTERN.VENDOR_DETAILS,
-                },
-              ]
-            : []
-        }
-        showIcons={enableMarketplacePages}
-      />
     );
   },
 );
@@ -180,7 +159,8 @@ export const MarketplaceLakehouseHeader = observer(() => {
       pages={[
         {
           title: 'Data Products',
-          urlRoute: LEGEND_MARKETPLACE_ROUTE_PATTERN.DATA_PRODUCTS,
+          urlRoute:
+            LEGEND_MARKETPLACE_ROUTE_PATTERN.DATA_PRODUCT_SEARCH_RESULTS,
         },
         {
           title: 'Data APIs',

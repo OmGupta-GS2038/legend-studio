@@ -22,6 +22,7 @@ import {
   type V1_DataContractsResponse,
   type V1_DataProduct,
   type V1_EngineServerClient,
+  type V1_EntitlementsDataProductDetails,
   type V1_IngestEnvironment,
   type V1_OrganizationalScope,
   V1_AdhocTeam,
@@ -52,7 +53,10 @@ import {
   IngestDeploymentServerConfig,
 } from '@finos/legend-server-lakehouse';
 import type { GenericLegendApplicationStore } from '@finos/legend-application';
-import { DSL_DATAPRODUCT_EVENT } from '../../__lib__/DSL_DataProduct_Event.js';
+import {
+  DSL_DATAPRODUCT_EVENT,
+  DSL_DATAPRODUCT_EVENT_STATUS,
+} from '../../__lib__/DSL_DataProduct_Event.js';
 import type { DataProductAPGState } from './DataProductAPGState.js';
 import type { DataProductDataAccess_LegendApplicationPlugin_Extension } from '../DataProductDataAccess_LegendApplicationPlugin_Extension.js';
 
@@ -79,6 +83,7 @@ export type DataProductDataAccessStateActions = {
 };
 
 export class DataProductDataAccessState {
+  readonly entitlementsDataProductDetails: V1_EntitlementsDataProductDetails;
   readonly dataProductViewerState: DataProductViewerState;
   readonly applicationStore: GenericLegendApplicationStore;
   readonly engineServerClient: V1_EngineServerClient;
@@ -106,6 +111,7 @@ export class DataProductDataAccessState {
   readonly ingestEnvironmentFetchState = ActionState.create();
 
   constructor(
+    entitlementsDataProductDetails: V1_EntitlementsDataProductDetails,
     dataProductViewerState: DataProductViewerState,
     lakehouseContractServerClient: LakehouseContractServerClient,
     lakehousePlatformServerClient: LakehousePlatformServerClient,
@@ -131,6 +137,7 @@ export class DataProductDataAccessState {
       init: flow,
     });
 
+    this.entitlementsDataProductDetails = entitlementsDataProductDetails;
     this.dataProductViewerState = dataProductViewerState;
     this.applicationStore = this.dataProductViewerState.applicationStore;
     this.engineServerClient = this.dataProductViewerState.engineServerClient;
@@ -193,7 +200,7 @@ export class DataProductDataAccessState {
         e.fetchingAccessState.inProgress(),
       );
       const didNode = new V1_AppDirNode();
-      didNode.appDirId = this.dataProductViewerState.deploymentId;
+      didNode.appDirId = this.entitlementsDataProductDetails.deploymentId;
       didNode.level = V1_AppDirLevel.DEPLOYMENT;
       const _contracts =
         await this.lakehouseContractServerClient.getDataContractsFromDID(
@@ -207,7 +214,7 @@ export class DataProductDataAccessState {
         ).filter((_contract) =>
           dataContractContainsDataProduct(
             this.product,
-            this.dataProductViewerState.deploymentId,
+            this.entitlementsDataProductDetails.deploymentId,
             _contract,
           ),
         );
@@ -237,11 +244,36 @@ export class DataProductDataAccessState {
     ]);
   }
 
+  logCreatingContract(
+    request: PlainObject<V1_CreateContractPayload>,
+    consumerType: string,
+    error: string | undefined,
+  ): void {
+    const data =
+      error === undefined
+        ? {
+            ...request,
+            consumerType: consumerType,
+            status: DSL_DATAPRODUCT_EVENT_STATUS.SUCCESS,
+          }
+        : {
+            ...request,
+            consumerType: consumerType,
+            status: DSL_DATAPRODUCT_EVENT_STATUS.FAILURE,
+            error: error,
+          };
+    this.applicationStore.telemetryService.logEvent(
+      DSL_DATAPRODUCT_EVENT.CREATE_CONTRACT,
+      data,
+    );
+  }
+
   *createContract(
     consumer: V1_OrganizationalScope,
     description: string,
     group: V1_AccessPointGroup,
     token: string | undefined,
+    consumerType: string,
   ): GeneratorFn<void> {
     try {
       this.creatingContractState.inProgress();
@@ -253,41 +285,50 @@ export class DataProductDataAccessState {
           description,
           resourceId: this.product.name,
           resourceType: V1_ResourceType.ACCESS_POINT_GROUP,
-          deploymentId: this.dataProductViewerState.deploymentId,
+          deploymentId: this.entitlementsDataProductDetails.deploymentId,
           accessPointGroup: group.id,
           consumer,
         } satisfies V1_CreateContractPayload,
       ) as PlainObject<V1_CreateContractPayload>;
-      const contracts = V1_dataContractsResponseModelSchemaToContracts(
-        (yield this.lakehouseContractServerClient.createContract(
-          request,
-          token,
-        )) as unknown as PlainObject<V1_DataContractsResponse>,
-        this.graphManagerState.pluginManager.getPureProtocolProcessorPlugins(),
-      );
-      const associatedContract = contracts[0];
-      // Only if the user has requested a contract for themself do we update the associated contract.
-      if (
-        associatedContract?.consumer instanceof V1_AdhocTeam &&
-        associatedContract.consumer.users.some(
-          (u) => u.name === this.applicationStore.identityService.currentUser,
-        )
-      ) {
-        const groupAccessState = this.dataProductViewerState.apgStates.find(
-          (e) => e.apg === group,
+      try {
+        const contracts = V1_dataContractsResponseModelSchemaToContracts(
+          (yield this.lakehouseContractServerClient.createContract(
+            request,
+            token,
+          )) as unknown as PlainObject<V1_DataContractsResponse>,
+          this.graphManagerState.pluginManager.getPureProtocolProcessorPlugins(),
         );
-        groupAccessState?.setAssociatedContract(
-          associatedContract,
-          this.lakehouseContractServerClient,
-          token,
-        );
-      }
+        const associatedContract = contracts[0];
+        // Only if the user has requested a contract for themself do we update the associated contract.
+        if (
+          associatedContract?.consumer instanceof V1_AdhocTeam &&
+          associatedContract.consumer.users.some(
+            (u) => u.name === this.applicationStore.identityService.currentUser,
+          )
+        ) {
+          const groupAccessState = this.dataProductViewerState.apgStates.find(
+            (e) => e.apg === group,
+          );
+          groupAccessState?.setAssociatedContract(
+            associatedContract,
+            this.lakehouseContractServerClient,
+            token,
+          );
+        }
 
-      this.setDataContractAccessPointGroup(undefined);
-      this.setDataContract(associatedContract);
-      this.applicationStore.notificationService.notifySuccess(
-        `Contract created, please go to contract view for pending tasks`,
-      );
+        this.setDataContractAccessPointGroup(undefined);
+        this.setDataContract(associatedContract);
+        this.applicationStore.notificationService.notifySuccess(
+          `Contract created, please go to contract view for pending tasks`,
+        );
+        this.logCreatingContract(request, consumerType, undefined);
+      } catch (error) {
+        assertErrorThrown(error);
+        this.applicationStore.notificationService.notifyError(
+          `${error.message}`,
+        );
+        this.logCreatingContract(request, consumerType, error.message);
+      }
     } catch (error) {
       assertErrorThrown(error);
       this.applicationStore.notificationService.notifyError(`${error.message}`);

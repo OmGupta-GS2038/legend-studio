@@ -33,6 +33,7 @@ import type {
   V1_IngestEnvironment,
   V1_SandboxDataProductDeploymentResponse,
   V1_IngestDefinition,
+  V1_ProducerEnvironment,
 } from '@finos/legend-graph';
 
 export class LakehouseIngestServerClient extends AbstractServerClient {
@@ -53,6 +54,11 @@ export class LakehouseIngestServerClient extends AbstractServerClient {
 
   private _tokenWithTextPlain = (token?: string) => ({
     [HttpHeader.CONTENT_TYPE]: ContentType.TEXT_PLAIN,
+    Authorization: `Bearer ${token}`,
+  });
+
+  private _tokenWithAcceptTextPlain = (token?: string) => ({
+    [HttpHeader.ACCEPT]: ContentType.TEXT_PLAIN,
     Authorization: `Bearer ${token}`,
   });
 
@@ -153,6 +159,17 @@ export class LakehouseIngestServerClient extends AbstractServerClient {
       this._token(token),
     );
 
+  getProducerEnvironmentDetails = (
+    producerEnvironmentUrn: string,
+    ingestServerUrl: string | undefined,
+    token: string | undefined,
+  ): Promise<PlainObject<V1_ProducerEnvironment>> =>
+    this.get(
+      `${this._ingest(ingestServerUrl)}/catalog-state/producer-environments/${producerEnvironmentUrn}`,
+      {},
+      this._token(token),
+    );
+
   getIngestDefinitionDetail = (
     ingestDefinitionUrn: string,
     ingestServerUrl: string | undefined,
@@ -165,5 +182,16 @@ export class LakehouseIngestServerClient extends AbstractServerClient {
       {
         ingestDefinitionUrn: ingestDefinitionUrn,
       },
+    );
+
+  getIngestDefinitionGrammar = (
+    ingestDefinitionUrn: string,
+    ingestServerUrl: string | undefined,
+    token: string | undefined,
+  ): Promise<string> =>
+    this.get(
+      `${this._ingest(ingestServerUrl)}/catalog-state/definitions/${ingestDefinitionUrn}`,
+      {},
+      this._tokenWithAcceptTextPlain(token),
     );
 }

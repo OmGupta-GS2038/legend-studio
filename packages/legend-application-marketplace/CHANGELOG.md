@@ -1,5 +1,41 @@
 # @finos/legend-application-marketplace
 
+## 0.1.18
+
+## 0.1.17
+
+## 0.1.16
+
+### Patch Changes
+
+- [#4494](https://github.com/finos/legend-studio/pull/4494) [`2882baf`](https://github.com/finos/legend-studio/commit/2882bafbf5afd8a659c3db86eba19319cce8c589) ([@MauricioUyaguari](https://github.com/MauricioUyaguari)) - Minor CSS fixes on Search Results page
+
+- [#4490](https://github.com/finos/legend-studio/pull/4490) [`4db55db`](https://github.com/finos/legend-studio/commit/4db55db273f7d2f0e670a90093485509955aced2) ([@yash0024](https://github.com/yash0024)) - Add analytics for Legend Marketplace: loading a DataProduct,
+  using the search bar, clicking on DataProduct cards,
+  actioning on contracts
+
+## 0.1.15
+
+### Patch Changes
+
+- [#4489](https://github.com/finos/legend-studio/pull/4489) [`b4ea0af`](https://github.com/finos/legend-studio/commit/b4ea0afe3c36eb3f30437ac9d9f2c61c6b25bed3) ([@MauricioUyaguari](https://github.com/MauricioUyaguari)) - /dataproducts to data products search
+
+## 0.1.14
+
+### Patch Changes
+
+- [#4479](https://github.com/finos/legend-studio/pull/4479) [`7ad81ad`](https://github.com/finos/legend-studio/commit/7ad81add981017b729ed39dfac63eac832747e75) ([@MauricioUyaguari](https://github.com/MauricioUyaguari)) - Home page upgrades and header fix
+
+- [#4477](https://github.com/finos/legend-studio/pull/4477) [`38d0e13`](https://github.com/finos/legend-studio/commit/38d0e135bf09e416c1dade5b48bc3be8e9aa14aa) ([@MauricioUyaguari](https://github.com/MauricioUyaguari)) - Addd `showDevFeatures` for WIP + dev features such as schedule a demo + Cart.
+
+- [#4477](https://github.com/finos/legend-studio/pull/4477) [`38d0e13`](https://github.com/finos/legend-studio/commit/38d0e135bf09e416c1dade5b48bc3be8e9aa14aa) ([@MauricioUyaguari](https://github.com/MauricioUyaguari)) - Add highlighted data products to config + include legacy data products support.
+
+- [#4469](https://github.com/finos/legend-studio/pull/4469) [`8a8c8c5`](https://github.com/finos/legend-studio/commit/8a8c8c53a3c24fcf682f107fa0044d91dacfd4e8) ([@travisstebbins](https://github.com/travisstebbins)) - Fix handling contracts with undefined eventPayload
+
+- [#4473](https://github.com/finos/legend-studio/pull/4473) [`a6a73b0`](https://github.com/finos/legend-studio/commit/a6a73b050b5c93cbf99d6c4559746b3fba03d23f) ([@kelly-thai](https://github.com/kelly-thai)) - Update styling for filtering/sorting on Marketplace search results
+
+- [#4457](https://github.com/finos/legend-studio/pull/4457) [`4a26d6b`](https://github.com/finos/legend-studio/commit/4a26d6b85a00880801c5bcb089eee632bd8e2aae) ([@travisstebbins](https://github.com/travisstebbins)) - Refactor marketplace state code
+
 ## 0.1.13
 
 ### Patch Changes

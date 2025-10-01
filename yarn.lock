@@ -1915,12 +1915,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@duckdb/duckdb-wasm@npm:1.29.0":
-  version: 1.29.0
-  resolution: "@duckdb/duckdb-wasm@npm:1.29.0"
+"@duckdb/duckdb-wasm@npm:1.31.0":
+  version: 1.31.0
+  resolution: "@duckdb/duckdb-wasm@npm:1.31.0"
   dependencies:
     apache-arrow: "npm:^17.0.0"
-  checksum: 10/39e89ee3f03e3b4006dbadb41b10b5460971c2918c4d5d613eb3d03faf5fb0fc65465ff93ce1a0f96040071a27fa18b1ca016be47ed1a40e965c65a4ebbedbfd
+  checksum: 10/c5363cead213e84c3e63179be28d7496814c012194cd15bf61b4b2680bcc00a2824309dc307369dacd2aff9fba08c05f5d23c511fedcf79eaa34034d5d109092
   languageName: node
   linkType: hard
 
@@ -2336,7 +2336,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@finos/legend-application-data-cube@workspace:packages/legend-application-data-cube"
   dependencies:
-    "@duckdb/duckdb-wasm": "npm:1.29.0"
+    "@duckdb/duckdb-wasm": "npm:1.31.0"
     "@finos/legend-application": "workspace:*"
     "@finos/legend-art": "workspace:*"
     "@finos/legend-code-editor": "workspace:*"
@@ -2360,6 +2360,7 @@ __metadata:
     mobx: "npm:6.13.6"
     mobx-react-lite: "npm:4.1.0"
     npm-run-all: "npm:4.1.5"
+    oidc-client-ts: "npm:^3.2.0"
     react: "npm:19.0.0"
     react-dom: "npm:19.0.0"
     react-oidc-context: "npm:^3.3.0"
@@ -2674,6 +2675,7 @@ __metadata:
     "@finos/legend-art": "workspace:*"
     "@finos/legend-dev-utils": "workspace:*"
     "@finos/legend-extension-assortment": "workspace:*"
+    "@finos/legend-extension-dsl-data-product": "workspace:*"
     "@finos/legend-extension-dsl-data-quality": "workspace:*"
     "@finos/legend-extension-dsl-data-space": "workspace:*"
     "@finos/legend-extension-dsl-data-space-studio": "workspace:*"
@@ -2725,6 +2727,7 @@ __metadata:
     "@finos/legend-code-editor": "workspace:*"
     "@finos/legend-data-cube": "workspace:*"
     "@finos/legend-dev-utils": "workspace:*"
+    "@finos/legend-extension-dsl-data-product": "workspace:*"
     "@finos/legend-graph": "workspace:*"
     "@finos/legend-lego": "workspace:*"
     "@finos/legend-query-builder": "workspace:*"

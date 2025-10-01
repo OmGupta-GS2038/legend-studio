@@ -1,5 +1,24 @@
 # @finos/legend-server-lakehouse
 
+## 0.3.2
+
+## 0.3.1
+
+## 0.3.0
+
+### Minor Changes
+
+- [#4424](https://github.com/finos/legend-studio/pull/4424) [`6bd1936`](https://github.com/finos/legend-studio/commit/6bd1936f17d07ff0c09e3e54f350713256b2ce71) ([@gs-gunjan](https://github.com/gs-gunjan)) - datacube: support iceberg querying flow for lakehouse producers
+  Description:
+  If a lakehouse ingested tabled is iceberg enabled, we allow querying the table via duckdb using iceberg extension
+  Initially we fetch all the data for a particular dataset from a catalog and cache the data. Subsequent operations happen on top of the stored cache.
+
+## 0.2.8
+
+### Patch Changes
+
+- [#4471](https://github.com/finos/legend-studio/pull/4471) [`acc1d25`](https://github.com/finos/legend-studio/commit/acc1d25daa0b3e76ca9ca09e46332faeaa863c43) ([@gs-gunjan](https://github.com/gs-gunjan)) - datacube: fixing incompatible protocol for ingest from datacube
+
 ## 0.2.7
 
 ## 0.2.6

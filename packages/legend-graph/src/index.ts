@@ -313,6 +313,7 @@ export {
   V1_AppDirNode,
   V1_AppDirOrganizationalScope,
   V1_OrganizationalScope,
+  V1_ProducerScope,
   V1_UnknownOrganizationalScopeType,
   V1_User,
   V1_UserType,
@@ -379,7 +380,9 @@ export {
   V1_IngestEnvironmentClassification,
   V1_IngestEnvironment,
   V1_AWSSnowflakeIngestEnvironment,
+  V1_OpenCatalog,
 } from './graph-manager/protocol/pure/v1/lakehouse/ingest/V1_LakehouseIngestEnvironment.js';
+export * from './graph-manager/protocol/pure/v1/lakehouse/ingest/V1_LakehouseProducerEnvironment.js';
 export {
   V1_observe_DataContract,
   V1_observe_LiteDataContract,
@@ -390,7 +393,10 @@ export {
   V1_dataSubscriptionModelSchema,
   V1_DataSubscriptionResponseModelSchema,
 } from './graph-manager/protocol/pure/v1/transformation/pureProtocol/serializationHelpers/V1_SubscriptionSerializationHelper.js';
-export { V1_deserializeIngestEnvironment } from './graph-manager/protocol/pure/v1/transformation/pureProtocol/serializationHelpers/V1_IngestSerializationHelper.js';
+export {
+  V1_deserializeIngestEnvironment,
+  V1_deserializeProducerEnvironment,
+} from './graph-manager/protocol/pure/v1/transformation/pureProtocol/serializationHelpers/V1_IngestSerializationHelper.js';
 export * from './graph-manager/protocol/pure/v1/model/lineage/V1_Lineage.js';
 
 // --------------------------------------------- EXECUTION PLAN --------------------------------------------------
